@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Business Analytics Minor – Learning Goals Survey</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Business Analytics Minor</div>
+    <h1>What do we want our students to learn?</h1>
+    <p>Below are 15 short descriptions of skills students could gain from the minor. Please tell us how much you like each one as a goal for the program. It takes about 3 minutes.</p>
+  </header>
+
+  <form id="survey" novalidate>
+    <div class="progress" aria-live="polite">
+      <div class="bar"><span id="barFill"></span></div>
+      <small id="progressText">0 of 15 rated</small>
+    </div>
+
+    <div id="goals"></div>
+
+    <div class="card">
+      <label class="field"><b>Your name (optional)</b>
+        <input id="name" type="text" autocomplete="name" placeholder="Leave blank to stay anonymous">
+      </label>
+      <label class="field"><b>Anything missing, or any other thoughts? (optional)</b>
+        <textarea id="comments" placeholder="e.g., a skill you'd add, combine, or reword"></textarea>
+      </label>
+      <div class="row">
+        <button class="btn" id="submitBtn" type="submit" disabled>Submit my ratings</button>
+        <span class="hint" id="submitHint">Rate all 15 goals to submit.</span>
+      </div>
+      <p class="error" id="error" hidden></p>
+    </div>
+  </form>
+
+  <div id="thanks" class="card" hidden>
+    <h2>Thank you!</h2>
+    <p>Your ratings were recorded. We appreciate your help shaping the minor.</p>
+  </div>
+</div>
+
+<div class="quip-backdrop" id="quipBox" role="dialog" aria-modal="true" aria-labelledby="quipText">
+  <div class="quip">
+    <div class="emoji" id="quipEmoji"></div>
+    <p id="quipText"></p>
+    <button class="btn ghost" id="quipClose" type="button">Ha, OK</button>
+  </div>
+</div>
+
+<script src="goals.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  const goalsEl = document.getElementById("goals");
+  const answers = {};
+  let choiceCount = 0;           // every rating click counts as a "choice"
+  const EMOJI = { 1: "🙈", 2: "🤝", 3: "🏛️", 4: "👍", 5: "🎉" };
+
+  // Build the goal cards
+  GOALS.forEach((g, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("role", "group");
+    card.setAttribute("aria-labelledby", "text-" + g.id);
+    card.id = "card-" + g.id;
+    const opts = SCALE.map(s =>
+      `<label><input type="radio" name="${g.id}" value="${s.value}"><span>${s.label}</span></label>`
+    ).join("");
+    card.innerHTML = `
+      <div class="goal-head">
+        <div class="num">${i + 1}</div>
+        <div>
+          <p class="goal-text" id="text-${g.id}">Students will ${lowerFirst(g.text)}</p>
+          <span class="tag">${g.level}</span>
+        </div>
+      </div>
+      <div class="scale" role="radiogroup" aria-label="Rating for goal ${i + 1}">${opts}</div>`;
+    goalsEl.appendChild(card);
+  });
+
+  function lowerFirst(s) { return s.charAt(0).toLowerCase() + s.slice(1); }
+
+  goalsEl.addEventListener("change", e => {
+    if (e.target.type !== "radio") return;
+    const v = Number(e.target.value);
+    answers[e.target.name] = v;
+    document.getElementById("card-" + e.target.name).classList.add("done");
+    updateProgress();
+    choiceCount++;
+    if (choiceCount % 3 === 0) showQuip(v);
+  });
+
+  function updateProgress() {
+    const n = Object.keys(answers).length;
+    document.getElementById("barFill").style.width = (n / GOALS.length * 100) + "%";
+    document.getElementById("progressText").textContent = `${n} of ${GOALS.length} rated`;
+    const done = n === GOALS.length;
+    document.getElementById("submitBtn").disabled = !done;
+    document.getElementById("submitHint").textContent = done ? "All set!" : `Rate all ${GOALS.length} goals to submit.`;
+  }
+
+  // Pop-up quip
+  const box = document.getElementById("quipBox");
+  let quipTimer;
+  function showQuip(value) {
+    const s = SCALE.find(x => x.value === value);
+    document.getElementById("quipText").textContent = s.quip;
+    document.getElementById("quipEmoji").textContent = EMOJI[value];
+    box.classList.add("show");
+    clearTimeout(quipTimer);
+    quipTimer = setTimeout(hideQuip, 2600);
+  }
+  function hideQuip() { box.classList.remove("show"); }
+  document.getElementById("quipClose").addEventListener("click", hideQuip);
+  box.addEventListener("click", e => { if (e.target === box) hideQuip(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") hideQuip(); });
+
+  // Submit
+  document.getElementById("survey").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = document.getElementById("error");
+    err.hidden = true;
+    if (!SCRIPT_URL || SCRIPT_URL.startsWith("PASTE_")) {
+      err.textContent = "This survey isn't connected to its results sheet yet (config.js needs the Web App URL).";
+      err.hidden = false;
+      return;
+    }
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true; btn.textContent = "Submitting…";
+    const payload = {
+      name: document.getElementById("name").value.trim(),
+      comments: document.getElementById("comments").value.trim(),
+      ratings: answers,
+      userAgent: navigator.userAgent.slice(0, 120)
+    };
+    try {
+      // text/plain + no-cors avoids a CORS preflight, which Apps Script doesn't support
+      await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+      try { localStorage.setItem("ba-goals-submitted", new Date().toISOString()); } catch (_) {}
+      document.getElementById("survey").hidden = true;
+      document.getElementById("thanks").hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (ex) {
+      btn.disabled = false; btn.textContent = "Submit my ratings";
+      err.textContent = "Couldn't submit — please check your connection and try again.";
+      err.hidden = false;
+    }
+  });
+
+  // Gentle note if this browser already submitted
+  try {
+    if (localStorage.getItem("ba-goals-submitted")) {
+      document.getElementById("submitHint").textContent =
+        "Looks like you've already submitted from this browser. You can submit again if you meant to.";
+    }
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>

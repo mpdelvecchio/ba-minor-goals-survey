@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Learning Goals Survey – Results</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Business Analytics Minor · Results</div>
+    <h1>Which learning goals do colleagues like most?</h1>
+    <p>Goals are ranked by average rating (1 = strongly dislike, 5 = strongly like). "% Like" counts <em>like</em> and <em>strongly like</em> together.</p>
+  </header>
+
+  <div class="card" id="login">
+    <form id="keyForm" class="row">
+      <label class="field" style="flex:1;margin:0"><b>Results password</b>
+        <input id="key" type="password" autocomplete="current-password" placeholder="The RESULTS_KEY you set in Code.gs">
+      </label>
+      <button class="btn" type="submit" style="align-self:flex-end">Load results</button>
+    </form>
+    <p class="hint">Preview with made-up data: <a href="?demo=1">results.html?demo=1</a></p>
+    <p class="error" id="error" hidden></p>
+  </div>
+
+  <div id="out" hidden>
+    <div class="stats" id="stats"></div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Summary</h2>
+      <div id="summary"></div>
+    </div>
+
+    <div class="row" style="justify-content:space-between;margin:20px 0 4px">
+      <h2 style="margin:0">All goals</h2>
+      <div class="row">
+        <button class="btn ghost" id="csvSummary" type="button">Download summary (CSV)</button>
+        <button class="btn ghost" id="csvRaw" type="button">Download raw responses (CSV)</button>
+      </div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="table-scroll">
+      <table id="table">
+        <thead><tr>
+          <th data-k="rank">Rank</th>
+          <th data-k="text">Goal</th>
+          <th data-k="level">Bloom's level</th>
+          <th data-k="mean">Avg ▾</th>
+          <th data-k="pctLike">% Like</th>
+          <th data-k="sd">Spread (SD)</th>
+          <th data-k="n">n</th>
+          <th>Distribution</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h2 style="margin-top:0">Comments</h2>
+      <div id="comments"></div>
+    </div>
+  </div>
+</div>
+
+<script src="goals.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const COLORS = ["--s1","--s2","--s3","--s4","--s5"].map(v => `var(${v})`);
+  let stats = [], rows = [], sortKey = "mean", sortDir = -1;
+
+  $("legend").innerHTML = SCALE.map((s, i) => `<span><i style="background:${COLORS[i]}"></i>${s.label}</span>`).join("");
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("demo")) { render(demoRows(), true); }
+
+  $("keyForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = $("error"); err.hidden = true;
+    if (!SCRIPT_URL || SCRIPT_URL.startsWith("PASTE_")) {
+      return showErr("config.js still needs the Web App URL from Apps Script.");
+    }
+    try {
+      const res = await fetch(SCRIPT_URL + "?key=" + encodeURIComponent($("key").value));
+      const data = await res.json();
+      if (!data.ok) return showErr(data.error === "Wrong or missing key" ? "That password didn't match." : data.error);
+      render(data.rows, false);
+    } catch (ex) {
+      showErr("Couldn't reach the results sheet. Check the Web App URL and that it's deployed with access \"Anyone\".");
+    }
+  });
+  function showErr(m) { $("error").textContent = m; $("error").hidden = false; }
+
+  function render(data, demo) {
+    rows = data;
+    stats = GOALS.map(g => {
+      const vals = rows.map(r => Number(r[g.id])).filter(v => v >= 1 && v <= 5);
+      const n = vals.length;
+      const counts = [1,2,3,4,5].map(k => vals.filter(v => v === k).length);
+      const mean = n ? vals.reduce((a, b) => a + b, 0) / n : 0;
+      const sd = n > 1 ? Math.sqrt(vals.reduce((a, v) => a + (v - mean) ** 2, 0) / (n - 1)) : 0;
+      const pctLike = n ? (counts[3] + counts[4]) / n * 100 : 0;
+      const pctDislike = n ? (counts[0] + counts[1]) / n * 100 : 0;
+      return { ...g, n, counts, mean, sd, pctLike, pctDislike };
+    });
+    // Rank: average first, then % like as tie-breaker
+    [...stats].sort((a, b) => b.mean - a.mean || b.pctLike - a.pctLike)
+      .forEach((s, i) => s.rank = i + 1);
+
+    $("login").hidden = !demo ? true : false;
+    $("out").hidden = false;
+
+    const overall = stats.reduce((a, s) => a + s.mean * s.n, 0) / Math.max(1, stats.reduce((a, s) => a + s.n, 0));
+    const ranked = [...stats].sort((a, b) => a.rank - b.rank);
+    $("stats").innerHTML = [
+      [rows.length, "responses" + (demo ? " (demo data)" : "")],
+      [overall.toFixed(2), "average rating, all goals"],
+      [ranked[0] ? "#" + (GOALS.indexOf(GOALS.find(g => g.id === ranked[0].id)) + 1) : "–", "top-rated goal"],
+      [stats.filter(s => s.mean >= 4).length, "goals averaging 4+ (“like”)"]
+    ].map(([b, s]) => `<div class="stat"><b>${b}</b><small>${s}</small></div>`).join("");
+
+    if (!rows.length) {
+      $("summary").innerHTML = "<p>No responses yet.</p>";
+    } else {
+      const top = ranked.slice(0, 5), bottom = ranked.slice(-3).reverse();
+      const divisive = [...stats].filter(s => s.n > 1).sort((a, b) => b.sd - a.sd).slice(0, 3);
+      const li = (s, extra) => `<li><b>${esc(s.text)}</b> <span class="hint">— avg ${s.mean.toFixed(2)}, ${s.pctLike.toFixed(0)}% like${extra ? ", " + extra(s) : ""}</span></li>`;
+      $("summary").innerHTML = `
+        <p><b>Strongest candidates for the final 2–3 goals:</b> ${ranked.slice(0, 3).map(s => "“" + esc(s.text) + "”").join(", ")}</p>
+        <h3>Most popular</h3><ol class="rank-list">${top.map(s => li(s)).join("")}</ol>
+        <h3>Least popular</h3><ol class="rank-list">${bottom.map(s => li(s, x => x.pctDislike.toFixed(0) + "% dislike")).join("")}</ol>
+        <h3>Most divided opinions</h3>
+        <p class="hint" style="margin-top:0">Colleagues disagreed most on these (largest spread of ratings) — worth discussing.</p>
+        <ol class="rank-list">${divisive.map(s => li(s, x => "SD " + x.sd.toFixed(2))).join("")}</ol>`;
+    }
+    drawTable();
+
+    const cm = rows.filter(r => String(r.Comments || "").trim());
+    $("comments").innerHTML = cm.length
+      ? cm.map(r => `<p><b>${esc(r.Name || "Anonymous")}:</b> ${esc(r.Comments)}</p>`).join("")
+      : "<p class='hint'>No comments yet.</p>";
+  }
+
+  function drawTable() {
+    const sorted = [...stats].sort((a, b) => {
+      const x = a[sortKey], y = b[sortKey];
+      return (typeof x === "string" ? x.localeCompare(y) : x - y) * sortDir;
+    });
+    document.querySelector("#table tbody").innerHTML = sorted.map(s => {
+      const bar = s.counts.map((c, i) => s.n ? `<i title="${SCALE[i].label}: ${c}" style="width:${c / s.n * 100}%;background:${COLORS[i]}"></i>` : "").join("");
+      return `<tr>
+        <td class="n">${s.rank}</td><td>${esc(s.text)}</td><td>${s.level}</td>
+        <td class="n"><b>${s.mean.toFixed(2)}</b></td><td class="n">${s.pctLike.toFixed(0)}%</td>
+        <td class="n">${s.sd.toFixed(2)}</td><td class="n">${s.n}</td>
+        <td><div class="dist">${bar}</div></td></tr>`;
+    }).join("");
+    document.querySelectorAll("#table th[data-k]").forEach(th => {
+      th.textContent = th.textContent.replace(/ [▾▴]$/, "") + (th.dataset.k === sortKey ? (sortDir < 0 ? " ▾" : " ▴") : "");
+    });
+  }
+
+  document.querySelectorAll("#table th[data-k]").forEach(th => th.addEventListener("click", () => {
+    const k = th.dataset.k;
+    if (k === sortKey) sortDir *= -1; else { sortKey = k; sortDir = (k === "rank" || k === "text" || k === "level") ? 1 : -1; }
+    drawTable();
+  }));
+
+  $("csvSummary").addEventListener("click", () => {
+    const head = ["Rank","Goal ID","Goal","Bloom level","Average","% Like","% Dislike","SD","n"].concat(SCALE.map(s => s.label));
+    const body = [...stats].sort((a, b) => a.rank - b.rank).map(s =>
+      [s.rank, s.id, s.text, s.level, s.mean.toFixed(2), s.pctLike.toFixed(1), s.pctDislike.toFixed(1), s.sd.toFixed(2), s.n].concat(s.counts));
+    download("goal-survey-summary.csv", [head].concat(body));
+  });
+  $("csvRaw").addEventListener("click", () => {
+    const head = ["Timestamp","Name","Comments"].concat(GOALS.map(g => g.id + " " + g.text));
+    const body = rows.map(r => [r.Timestamp, r.Name, r.Comments].concat(GOALS.map(g => r[g.id])));
+    download("goal-survey-responses.csv", [head].concat(body));
+  });
+
+  function download(name, table) {
+    const csv = table.map(r => r.map(v => {
+      v = v == null ? "" : String(v);
+      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+    a.download = name; a.click();
+  }
+
+  function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+  function demoRows() {
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const lean = [3.6,3.4,4.1,4.3,3.2,4.5,3.8,4.0,3.3,4.2,3.9,4.6,3.0,4.4,3.7];
+    return Array.from({ length: 12 }, (_, i) => {
+      const r = { Timestamp: new Date(Date.now() - i * 36e5).toISOString(), Name: i % 3 ? "" : "Colleague " + (i + 1),
+        Comments: i === 2 ? "I'd combine the forecasting and regression goals." : "" };
+      GOALS.forEach((g, j) => { r[g.id] = Math.min(5, Math.max(1, Math.round(lean[j] + (rnd() - 0.5) * 2.6))); });
+      return r;
+    });
+  }
+})();
+</script>
+</body>
+</html>
