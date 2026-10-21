@@ -20,9 +20,9 @@ const GOALS = [
 ];
 
 const SCALE = [
-  { value: 1, label: "Strongly dislike", quip: "Oh I know. That one is really not the best!" },
-  { value: 2, label: "Dislike",          quip: "Yeah, me neither!" },
-  { value: 3, label: "Indifferent",      quip: "Well Rome wasn't built in a day!" },
-  { value: 4, label: "Like",             quip: "Yeah, that one's not bad." },
-  { value: 5, label: "Strongly like",    quip: "I know right!!" }
+  { value: 1, label: "Dislike",       quip: "Yeah, that one’s not the greatest." },
+  { value: 2, label: "Indifferent",   quip: "‘Meh’ is a solid answer here!" },
+  { value: 3, label: "Like",          quip: "Right? That one’s not too bad." },
+  { value: 4, label: "Strongly like", quip: "Yeah, we might need to keep that one." },
+  { value: 5, label: "Absolutely",    quip: "I knew you’d like that one!" }
 ];

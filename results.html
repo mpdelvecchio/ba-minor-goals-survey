@@ -12,7 +12,7 @@
   <header>
     <div class="eyebrow">Business Analytics Minor · Results</div>
     <h1>Which learning goals do colleagues like most?</h1>
-    <p>Goals are ranked by average rating (1 = strongly dislike, 5 = strongly like). "% Like" counts <em>like</em> and <em>strongly like</em> together.</p>
+    <p>Goals are ranked by average rating (1 = dislike, 2 = indifferent, 3 = like, 4 = strongly like, 5 = absolutely). "% Top 2" counts <em>strongly like</em> and <em>absolutely</em> together.</p>
   </header>
 
   <div class="card" id="login">
@@ -49,7 +49,7 @@
           <th data-k="text">Goal</th>
           <th data-k="level">Bloom's level</th>
           <th data-k="mean">Avg ▾</th>
-          <th data-k="pctLike">% Like</th>
+          <th data-k="pctLike">% Top 2</th>
           <th data-k="sd">Spread (SD)</th>
           <th data-k="n">n</th>
           <th>Distribution</th>
@@ -107,7 +107,7 @@
       const pctDislike = n ? (counts[0] + counts[1]) / n * 100 : 0;
       return { ...g, n, counts, mean, sd, pctLike, pctDislike };
     });
-    // Rank: average first, then % like as tie-breaker
+    // Rank: average first, then % top-2 (strongly like / absolutely) as tie-breaker
     [...stats].sort((a, b) => b.mean - a.mean || b.pctLike - a.pctLike)
       .forEach((s, i) => s.rank = i + 1);
 
@@ -120,7 +120,7 @@
       [rows.length, "responses" + (demo ? " (demo data)" : "")],
       [overall.toFixed(2), "average rating, all goals"],
       [ranked[0] ? "#" + (GOALS.indexOf(GOALS.find(g => g.id === ranked[0].id)) + 1) : "–", "top-rated goal"],
-      [stats.filter(s => s.mean >= 4).length, "goals averaging 4+ (“like”)"]
+      [stats.filter(s => s.mean >= 4).length, "goals averaging 4+ (“strongly like”)"]
     ].map(([b, s]) => `<div class="stat"><b>${b}</b><small>${s}</small></div>`).join("");
 
     if (!rows.length) {
@@ -128,11 +128,11 @@
     } else {
       const top = ranked.slice(0, 5), bottom = ranked.slice(-3).reverse();
       const divisive = [...stats].filter(s => s.n > 1).sort((a, b) => b.sd - a.sd).slice(0, 3);
-      const li = (s, extra) => `<li><b>${esc(s.text)}</b> <span class="hint">— avg ${s.mean.toFixed(2)}, ${s.pctLike.toFixed(0)}% like${extra ? ", " + extra(s) : ""}</span></li>`;
+      const li = (s, extra) => `<li><b>${esc(s.text)}</b> <span class="hint">— avg ${s.mean.toFixed(2)}, ${s.pctLike.toFixed(0)}% top 2${extra ? ", " + extra(s) : ""}</span></li>`;
       $("summary").innerHTML = `
         <p><b>Strongest candidates for the final 2–3 goals:</b> ${ranked.slice(0, 3).map(s => "“" + esc(s.text) + "”").join(", ")}</p>
         <h3>Most popular</h3><ol class="rank-list">${top.map(s => li(s)).join("")}</ol>
-        <h3>Least popular</h3><ol class="rank-list">${bottom.map(s => li(s, x => x.pctDislike.toFixed(0) + "% dislike")).join("")}</ol>
+        <h3>Least popular</h3><ol class="rank-list">${bottom.map(s => li(s, x => x.pctDislike.toFixed(0) + "% dislike/indifferent")).join("")}</ol>
         <h3>Most divided opinions</h3>
         <p class="hint" style="margin-top:0">Colleagues disagreed most on these (largest spread of ratings) — worth discussing.</p>
         <ol class="rank-list">${divisive.map(s => li(s, x => "SD " + x.sd.toFixed(2))).join("")}</ol>`;
@@ -170,7 +170,7 @@
   }));
 
   $("csvSummary").addEventListener("click", () => {
-    const head = ["Rank","Goal ID","Goal","Bloom level","Average","% Like","% Dislike","SD","n"].concat(SCALE.map(s => s.label));
+    const head = ["Rank","Goal ID","Goal","Bloom level","Average","% Top 2 (Strongly like + Absolutely)","% Dislike or Indifferent","SD","n"].concat(SCALE.map(s => s.label));
     const body = [...stats].sort((a, b) => a.rank - b.rank).map(s =>
       [s.rank, s.id, s.text, s.level, s.mean.toFixed(2), s.pctLike.toFixed(1), s.pctDislike.toFixed(1), s.sd.toFixed(2), s.n].concat(s.counts));
     download("goal-survey-summary.csv", [head].concat(body));

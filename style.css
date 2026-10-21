@@ -6,7 +6,7 @@
   --line: #e2ded4;
   --accent: #b3122e;
   --accent-soft: #fbe9ec;
-  --s1: #c0392b; --s2: #e67e22; --s3: #95a0ad; --s4: #5aa36b; --s5: #1e7a46;
+  --s1: #e67e22; --s2: #95a0ad; --s3: #5aa36b; --s4: #2e8b57; --s5: #1b6b3c;
   --radius: 14px;
 }
 * { box-sizing: border-box; }
@@ -56,7 +56,7 @@ header p { color: var(--muted); margin: 0 0 8px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
 .hint { color: var(--muted); font-size: .9rem; }
-.error { color: var(--s1); font-weight: 600; }
+.error { color: #c0392b; font-weight: 600; }
 
 /* Pop-up quip */
 .quip-backdrop { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(20,22,30,.25); z-index: 50; opacity: 0; pointer-events: none; transition: opacity .2s; }

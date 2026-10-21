@@ -1,7 +1,7 @@
 # Business Analytics Minor – Learning Goals Survey
 
 A small website where colleagues rate 15 short, Bloom's-style learning goals
-(Strongly dislike → Strongly like). Responses are saved to a Google Sheet, and a
+(Dislike → Absolutely). Responses are saved to a Google Sheet, and a
 results page ranks the goals by popularity.
 
 | File | What it is |
@@ -53,5 +53,6 @@ Edit `config.js` and paste the Web App URL in place of `PASTE_YOUR_WEB_APP_URL_H
   so the URL stays the same.
 - Preview the results page with fake data anytime: `.../results.html?demo=1`.
 - The survey pops up a comment on every 3rd rating click, matched to the rating just chosen.
-- Ranking = average rating (ties broken by % who chose Like or Strongly like). The
+- The goals appear in a random order for each visitor, so position does not sway the ratings.
+- Ranking = average rating (ties broken by % who chose Strongly like or Absolutely). The
   summary also flags the goals with the most divided opinions.
